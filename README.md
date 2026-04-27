@@ -6,7 +6,7 @@ A CPU-only AutoResearch project for **STAT 390**.
 
 ## Problem
 
-Categorize and track top performing whales on Polymarket.
+Auditing 'Smart Money' on Polymarket to determine if whale activity functions as a leading indicator for market resolution.
 **Metrics**: Brier Skill Score (higher is better)
 **Data**: Polymarket dataset found on Kaggle
 
