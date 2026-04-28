@@ -1,136 +1,165 @@
-"""
-FROZEN -- Do not modify this file.
-Handles chronological data partitioning, feature insulation, and BSS evaluation.
-Standard: scikit-learn, polars, pandas.
-"""
-import numpy as np
 import polars as pl
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import brier_score_loss
-import matplotlib.pyplot as plt
-import csv
-import os
+plt.switch_backend('Agg')
 
-# ── Constants ──────────────────────────────────────────────
-RANDOM_SEED = 42
-DATA_DIR = "data"
-MASTER_FILE = os.path.join(DATA_DIR, "master_trades.parquet")
-POOL_FILE = os.path.join(DATA_DIR, "train_val_pool.parquet")
-TEST_FILE = os.path.join(DATA_DIR, "test_trades.parquet")
+# --- CONFIGURATION ---
+DATA_PATH = "data/master_trades.parquet"
+POOL_PATH = "data/train_val_pool.parquet"
+TEST_PATH = "data/test_trades.parquet"
 RESULTS_FILE = "results.tsv"
-
-# ── Data Partitioning & Leakage Protection ──────────────────
-def initialize_files_if_needed():
-    """Perform the 80/20 Chronological Split and save permanent files."""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-        
-    if not os.path.exists(POOL_FILE) or not os.path.exists(TEST_FILE):
-        print("🛠️ Initializing data splits (Chronological 80/20)...")
-        df = pl.read_parquet(MASTER_FILE).sort("date")
-        
-        # Partition: Most recent 20% becomes the 'Future' Test Set
-        split_idx = int(len(df) * 0.8)
-        train_val_pool = df.slice(0, split_idx)
-        test_set = df.slice(split_idx)
-        
-        train_val_pool.write_parquet(POOL_FILE)
-        test_set.write_parquet(TEST_FILE)
-        print(f"✅ Created {POOL_FILE} and {TEST_FILE}")
+PLOT_FILE = "performance.png"
+RANDOM_SEED = 42
 
 def load_data():
-    """Load the pool data and perform the secondary 80/20 Train/Val split."""
-    initialize_files_if_needed()
-    
-    df = pl.read_parquet(POOL_FILE)
-    
-    # --- FEATURE FIREWALL ---
-    # target = outcome (0 or 1). We strip IDs and Time information to prevent leakage.
-    target_col = "outcome"
-    forbidden = [target_col, "market_id", "date", "timestamp", "final_price", "settlement"]
-    feature_cols = [c for c in df.columns if c not in forbidden]
-    
-    df_clean = df.drop_nulls(subset=feature_cols + [target_col])
-    
-    X = df_clean.select(feature_cols).to_pandas()
-    y = df_clean[target_col].to_pandas()
+    """
+    1. Loads the master parquet file.
+    2. Creates a chronological 80/20 split if it doesn't exist.
+    3. Handles nulls safely (fills numeric with 0, drops missing targets).
+    4. Returns clean data ready for Scikit-Learn.
+    """
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(f"Missing {DATA_PATH}. Ensure your data is in the data/ folder.")
 
-    # SECONDARY SPLIT: 80% Train, 20% Val from the Pool
-    # shuffle=False is critical to maintain chronological order
+    df = pl.read_parquet(DATA_PATH)
+    
+    # Partition data (80% Pool for training/val, 20% Held-out for final thesis test)
+    if not os.path.exists(POOL_PATH) or not os.path.exists(TEST_PATH):
+        print("🛠️ Initializing chronological data partitions...")
+        split_idx = int(len(df) * 0.8)
+        df_pool = df.slice(0, split_idx)
+        df_test = df.slice(split_idx)
+        df_pool.write_parquet(POOL_PATH)
+        df_test.write_parquet(TEST_PATH)
+    else:
+        df_pool = pl.read_parquet(POOL_PATH)
+
+    target_col = "outcome"
+    # Exclude non-feature columns from the model
+    exclude = [target_col, "p_close", "trade_id", "timestamp", "date"] 
+    feature_cols = [c for c in df_pool.columns if c not in exclude]
+
+    # Data Cleaning Phase
+    # We only drop rows if we don't have the "answer" (outcome)
+    df_clean = df_pool.drop_nulls(subset=[target_col])
+    
+    # We find which columns are numeric so we don't crash when filling nulls with 0
+    numeric_features = [
+        name for name, dtype in df_clean.schema.items() 
+        if name in feature_cols and dtype.is_numeric()
+    ]
+    
+    # Fill missing whale signals with 0 (meaning 'No Activity')
+    df_clean = df_clean.with_columns([
+        pl.col(c).fill_null(0) for c in numeric_features
+    ])
+    
+    if len(df_clean) == 0:
+        raise ValueError("CRITICAL: Resulting dataset is empty. Check your 'outcome' column.")
+
+    # Convert to Numpy for Scikit-Learn
+    X = df_clean.select(numeric_features).to_numpy()
+    y = df_clean.select(target_col).to_numpy().ravel()
+    
+    # Chronological validation split for the active experiment
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=0.20, random_state=RANDOM_SEED, shuffle=False
     )
     
-    return X_train, y_train, X_val, y_val, feature_cols
+    print(f"✅ Data Ready: {len(X_train)} train rows, {len(X_val)} val rows.")
+    return X_train, y_train, X_val, y_val, numeric_features
 
-# ── Evaluation (Brier Skill Score) ──────────────────────────
 def evaluate(model, X_val, y_val):
-    """
-    Computes BSS. Higher is better.
-    Benchmark: p_close (The market price at trade time).
-    """
-    y_prob = model.predict_proba(X_val)[:, 1]
+    """Calculates Brier Score and Brier Skill Score."""
+    probs = model.predict_proba(X_val)[:, 1]
+    bs = brier_score_loss(y_val, probs)
     
-    bs_model = float(brier_score_loss(y_val, y_prob))
-    bs_market = float(brier_score_loss(y_val, X_val["p_close"]))
+    # Baseline: A 50/50 coin flip prediction
+    bs_baseline = brier_score_loss(y_val, np.full_like(y_val, 0.5, dtype=float))
     
-    # Calculate Skill: How much better are we than the price?
-    bss = 1.0 - (bs_model / bs_market) if bs_market > 0 else 0.0
-    
-    return bss, bs_model
+    # BSS: Positive = better than a coin flip; Negative = worse
+    bss = 1 - (bs / bs_baseline)
+    return bss, bs, bs_baseline
 
-# ── Logging ────────────────────────────────────────────────
-def log_result(experiment_id, val_bss, val_bs, status, description):
-    file_exists = os.path.exists(RESULTS_FILE)
-    with open(RESULTS_FILE, "a", newline="") as f:
-        writer = csv.writer(f, delimiter="\t")
-        if not file_exists:
-            writer.writerow(["experiment", "val_bss", "val_bs", "status", "description"])
-        writer.writerow([experiment_id, f"{val_bss:.6f}", f"{val_bs:.6f}", status, description])
+def log_result(commit, bss, bs, status, description):
+    """Saves the experiment record to a TSV file."""
+    import datetime
+    header = "timestamp\tcommit\tbss\tbs\tstatus\tdescription\n"
+    if not os.path.exists(RESULTS_FILE):
+        with open(RESULTS_FILE, "w") as f:
+            f.write(header)
+            
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{ts}\t{commit}\t{bss:.6f}\t{bs:.6f}\t{status}\t{description}\n"
+    with open(RESULTS_FILE, "a") as f:
+        f.write(line)
 
-# ── Plotting ───────────────────────────────────────────────
-def plot_results(save_path="performance.png"):
+def generate_plot():
+    """Generates a professional, industry-standard BSS tracking chart."""
     if not os.path.exists(RESULTS_FILE):
         return
 
-    bss_list, bs_list, statuses, descriptions = [], [], [], []
-    with open(RESULTS_FILE) as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        for row in reader:
-            bss_list.append(float(row["val_bss"]))
-            bs_list.append(float(row["val_bs"]))
-            statuses.append(row["status"])
-            descriptions.append(row["description"])
+    # Load data
+    df = pl.read_csv(RESULTS_FILE, separator="\t")
+    if len(df) == 0:
+        return
 
-    color_map = {"keep": "#2ecc71", "discard": "#e74c3c", "baseline": "#3498db"}
-    colors = [color_map.get(s, "#95a5a6") for s in statuses]
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 8), sharex=True)
-
-    # Top: BSS
-    ax1.scatter(range(len(bss_list)), bss_list, c=colors, s=80, zorder=3, edgecolors="white")
-    ax1.plot(range(len(bss_list)), bss_list, "k--", alpha=0.2)
+    # --- Styling Setup ---
+    plt.figure(figsize=(10, 5), dpi=120)
+    ax = plt.gca()
     
-    best_bss = []
-    curr_max = -float("inf")
-    for b in bss_list:
-        curr_max = max(curr_max, b)
-        best_bss.append(curr_max)
-    ax1.plot(range(len(bss_list)), best_bss, color="#2ecc71", linewidth=2, label="Best so far")
+    # Professional Palette: Slate Blue, Emerald Green, Soft Red
+    colors = {"baseline": "#4A90E2", "keep": "#27AE60", "discard": "#E74C3C"}
     
-    ax1.set_ylabel("Brier Skill Score (Higher is Better)")
-    ax1.set_title("AutoResearch: Whale Flow Predictive Edge", fontweight="bold")
-    ax1.axhline(0, color='black', alpha=0.5)
+    # 1. Plot the "No Skill" Baseline
+    plt.axhline(y=0, color='#333333', linestyle='-', linewidth=0.8, alpha=0.5, label="No Skill (0.5 Bias)")
+    
+    # 2. Plot the Experiments
+    for i in range(len(df)):
+        val = df[i, "bss"]
+        status = df[i, "status"]
+        desc = df[i, "description"]
+        
+        color = colors.get(status, "#7F8C8D")
+        
+        # Draw point with a subtle white border for pop
+        plt.scatter(i, val, color=color, s=120, edgecolors='white', linewidth=1.5, zorder=4)
+        
+        # Minimalist Annotation: Offset slightly to the right/up
+        plt.annotate(
+            f" {desc}", 
+            (i, val), 
+            xytext=(6, 4), 
+            textcoords='offset points',
+            fontsize=9, 
+            fontweight='medium',
+            color='#2C3E50',
+            alpha=0.9
+        )
 
-    # Bottom: BS
-    ax2.scatter(range(len(bs_list)), bs_list, c=colors, s=80, zorder=3, edgecolors="white")
-    ax2.plot(range(len(bs_list)), bs_list, "k--", alpha=0.2)
-    ax2.set_ylabel("Brier Score (Lower is Better)")
-    ax2.set_xlabel("Experiment #")
-
+    # 3. Clean Up Axes (Industry Standard "Despining")
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#CCCCCC')
+    ax.spines['bottom'].set_color('#CCCCCC')
+    
+    # 4. Refined Grid & Labels
+    plt.grid(axis='y', linestyle='--', alpha=0.3, zorder=1)
+    plt.title("Brier Skill Score (BSS) Optimization", loc='left', fontsize=14, fontweight='bold', pad=20, color='#2C3E50')
+    plt.xlabel("Iteration Number", fontsize=10, color='#7F8C8D', labelpad=10)
+    plt.ylabel("BSS (Improvement over 0.5)", fontsize=10, color='#7F8C8D', labelpad=10)
+    
+    # Ensure X-axis only shows integers for experiment numbers
+    plt.xticks(range(len(df)))
+    
+    # Adjust margins to fit annotations
     plt.tight_layout()
-    plt.savefig(save_path, dpi=150)
-    print(f"📊 Performance chart saved to {save_path}")
+    
+    plt.savefig(PLOT_FILE)
+    print(f"📊 Industry-standard chart saved: {PLOT_FILE}")
 
 if __name__ == "__main__":
-    plot_results()
+    generate_plot()
