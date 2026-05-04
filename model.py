@@ -11,12 +11,14 @@ from sklearn.preprocessing import StandardScaler
 def build_model():
     """
     Return a scikit-learn Pipeline. 
-    Experiment 1: Random Forest Classifier (n_estimators=100).
+    Experiment 2: Increased Forest depth and trees for complexity.
     """
     return Pipeline([
         ("scaler", StandardScaler()),
         ("model", RandomForestClassifier(
-            n_estimators=100,
+            n_estimators=200,
+            max_depth=12,
+            min_samples_split=5,
             random_state=42,
             n_jobs=-1
         )),
