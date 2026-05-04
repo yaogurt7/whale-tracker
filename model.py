@@ -3,22 +3,18 @@ EDITABLE -- The agent modifies this file.
 Define the model pipeline for Polymarket Whale Flow classification.
 Starting point: Logistic Regression Baseline.
 """
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 
 
 def build_model():
     """
     Return a scikit-learn Pipeline. 
-    Experiment 3: HistGradientBoostingClassifier to improve BSS via gradient boosting.
+    Experiment 4: Logistic Regression with Polynomial Interactions.
     """
     return Pipeline([
         ("scaler", StandardScaler()),
-        ("model", HistGradientBoostingClassifier(
-            max_iter=100,
-            max_depth=5,
-            learning_rate=0.1,
-            random_state=42
-        )),
+        ("poly", PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)),
+        ("model", LogisticRegression(random_state=42, max_iter=1000)),
     ])
