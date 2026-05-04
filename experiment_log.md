@@ -31,3 +31,12 @@
 - Kept `StandardScaler` for preprocessing.
 
 **Rationale:** Exploring `HistGradientBoostingClassifier` for potentially better performance and scalability compared to `GradientBoostingClassifier`, as suggested in `program.md`.
+### Baseline: Logistic Regression
+
+**Date:** 2026-05-04
+
+**Changes to `model.py`:**
+- Initialized `model.py` to use `LogisticRegression`.
+- Standard `StandardScaler` for preprocessing.
+
+**Rationale:** Establishing a baseline performance using a simple, well-understood linear model as per instructions.
