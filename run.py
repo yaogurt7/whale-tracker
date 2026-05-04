@@ -52,13 +52,13 @@ def main():
     print(f"Training time: {train_time:.2f}s")
 
     # 4. Evaluate (Metric: Brier Skill Score vs Market Price)
-    val_bss, val_bs = evaluate(model, X_val, y_val)
-    print(f"Validation BSS: {val_bss:.6f} (Higher is better)")
-    print(f"Validation BS:  {val_bs:.6f}  (Lower is better)")
+    metrics = evaluate(model, X_val, y_val)
+    print(f"Validation BSS: {metrics['bss']:.6f} (Higher is better)")
+    print(f"Validation BS:  {metrics['bs']:.6f}  (Lower is better)")
 
     # 5. Log Result
     commit = get_git_hash()
-    log_result(commit, val_bss, val_bs, status, description)
+    log_result(commit, metrics['bss'], metrics['bs'], status, description)
     print(f"Result logged to results.tsv (status={status}, commit={commit})")
     print("-" * 40)
 

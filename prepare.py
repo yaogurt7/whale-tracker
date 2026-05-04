@@ -83,7 +83,11 @@ def evaluate(model, X_val, y_val):
     
     # BSS: Positive = better than a coin flip; Negative = worse
     bss = 1 - (bs / bs_baseline)
-    return bss, bs, bs_baseline
+    return {
+        "bss": bss,
+        "bs": bs,
+        "bs_baseline": bs_baseline
+    }
 
 def log_result(commit, bss, bs, status, description):
     """Saves the experiment record to a TSV file."""
