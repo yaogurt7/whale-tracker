@@ -8,6 +8,8 @@ Usage:
 import sys
 import time
 import subprocess
+import os # Needed for checking if results.tsv exists
+import polars as pl # Needed for reading results.tsv
 from prepare import load_data, evaluate, log_result
 
 
@@ -56,8 +58,28 @@ def main():
     print(f"Validation BSS: {metrics['bss']:.6f} (Higher is better)")
     print(f"Validation BS:  {metrics['bs']:.6f}  (Lower is better)")
 
-    # 5. Log Result
+    # 5. Auto-Discard Logic & Log Result
     commit = get_git_hash()
+    
+    # Read existing results to find the best BSS from 'baseline' or 'keep' entries
+    highest_bss_historical = -float('inf')
+    if os.path.exists("results.tsv"):
+        try:
+            df_results = pl.read_csv("results.tsv", separator="\t")
+            filtered_df = df_results.filter(pl.col("status").is_in(["baseline", "keep"]))
+            if len(filtered_df) > 0:
+                highest_bss_historical = filtered_df["bss"].max()
+        except pl.NoDataError:
+            print("results.tsv exists but is empty or malformed. Comparison will start fresh.")
+        except Exception as e:
+            print(f"Error reading results.tsv for comparison: {e}")
+            
+    # Apply auto-discard if current BSS is lower than the historical best
+    # This logic does not override explicitly set '--baseline' or '--discard' statuses
+    if status not in ["baseline", "discard"] and metrics['bss'] < highest_bss_historical:
+        print(f"Current BSS ({metrics['bss']:.6f}) is lower than historical best ({highest_bss_historical:.6f}). Setting status to 'discard'.")
+        status = "discard"
+            
     log_result(commit, metrics['bss'], metrics['bs'], status, description)
     print(f"Result logged to results.tsv (status={status}, commit={commit})")
     print("-" * 40)

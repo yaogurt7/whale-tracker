@@ -107,6 +107,9 @@ def generate_plot():
     if not os.path.exists(RESULTS_FILE):
         return
 
+    # Clear all existing figures to prevent "ghosting" or memory accumulation
+    plt.close('all') 
+
     # Load data
     df = pl.read_csv(RESULTS_FILE, separator="\t")
     if len(df) == 0:
