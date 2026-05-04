@@ -62,6 +62,9 @@ def generate_plot():
     df = pl.read_csv(RESULTS_FILE, separator="\t", truncate_ragged_lines=True, ignore_errors=True)
     if len(df) == 0: return
 
+    # Clean up column names by stripping whitespace
+    df.columns = [col.strip() for col in df.columns]
+
     plt.figure(figsize=(10, 5), dpi=120)
     colors = {"baseline": "#4A90E2", "keep": "#27AE60", "discard": "#E74C3C"}
     

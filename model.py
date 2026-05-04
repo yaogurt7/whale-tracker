@@ -6,7 +6,10 @@ Starting point: Logistic Regression Baseline.
 import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression
+import polars as pl
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -17,10 +20,11 @@ def build_model():
     """
     Returns the core model pipeline. 
     Modify this function to test new architectures.
+    Experiment 3: HistGradientBoostingClassifier.
     """
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('model', LogisticRegression(max_iter=1000, random_state=42))
+        ('model', HistGradientBoostingClassifier(random_state=42))
     ])
     return pipeline
 

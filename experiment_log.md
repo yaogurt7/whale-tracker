@@ -19,3 +19,15 @@
 - Kept `StandardScaler` for preprocessing.
 
 **Rationale:** Exploring another ensemble method, `GradientBoostingClassifier`, as suggested in `program.md`. This often provides strong performance and could be an improvement over `RandomForestClassifier`.
+
+---
+
+### Experiment 3: HistGradientBoostingClassifier
+
+**Date:** 2026-05-04
+
+**Changes to `model.py`:**
+- Replaced `GradientBoostingClassifier` with `HistGradientBoostingClassifier`.
+- Kept `StandardScaler` for preprocessing.
+
+**Rationale:** Exploring `HistGradientBoostingClassifier` for potentially better performance and scalability compared to `GradientBoostingClassifier`, as suggested in `program.md`.
