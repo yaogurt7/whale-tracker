@@ -11,14 +11,12 @@ from sklearn.preprocessing import StandardScaler
 def build_model():
     """
     Return a scikit-learn Pipeline. 
-    Experiment 1: Tuned Random Forest Classifier for non-linear interactions.
+    Experiment 1: Random Forest Classifier (n_estimators=100).
     """
     return Pipeline([
         ("scaler", StandardScaler()),
         ("model", RandomForestClassifier(
-            n_estimators=150,
-            max_depth=8,
-            min_samples_leaf=5,
+            n_estimators=100,
             random_state=42,
             n_jobs=-1
         )),

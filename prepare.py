@@ -7,6 +7,7 @@ from sklearn.metrics import brier_score_loss
 plt.switch_backend('Agg')
 
 # --- CONFIGURATION ---
+WHALE_BASE = ["whale_flow_top10p_quote", "hhi", "top10_share"]
 DATA_PATH = "data/master_trades.parquet"
 POOL_PATH = "data/train_val_pool.parquet"
 TEST_PATH = "data/test_trades.parquet"
@@ -28,7 +29,7 @@ def load_data():
     
     # Partition data (80% Pool for training/val, 20% Held-out for final thesis test)
     if not os.path.exists(POOL_PATH) or not os.path.exists(TEST_PATH):
-        print("🛠️ Initializing chronological data partitions...")
+        print("Initializing chronological data partitions...")
         split_idx = int(len(df) * 0.8)
         df_pool = df.slice(0, split_idx)
         df_test = df.slice(split_idx)
@@ -49,7 +50,7 @@ def load_data():
     # We find which columns are numeric so we don't crash when filling nulls with 0
     numeric_features = [
         name for name, dtype in df_clean.schema.items() 
-        if name in feature_cols and dtype.is_numeric()
+        if name in feature_cols and name in WHALE_BASE and dtype.is_numeric()
     ]
     
     # Fill missing whale signals with 0 (meaning 'No Activity')
@@ -69,7 +70,7 @@ def load_data():
         X, y, test_size=0.20, random_state=RANDOM_SEED, shuffle=False
     )
     
-    print(f"✅ Data Ready: {len(X_train)} train rows, {len(X_val)} val rows.")
+    print(f"Data Ready: {len(X_train)} train rows, {len(X_val)} val rows.")
     return X_train, y_train, X_val, y_val, numeric_features
 
 def evaluate(model, X_val, y_val):
