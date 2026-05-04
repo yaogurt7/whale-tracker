@@ -66,6 +66,8 @@ def main():
     if os.path.exists("results.tsv"):
         try:
             df_results = pl.read_csv("results.tsv", separator="\t")
+            # Clean up column names by stripping whitespace, as results.tsv might have inconsistent spacing
+            df_results.columns = [col.strip() for col in df_results.columns]
             filtered_df = df_results.filter(pl.col("status").is_in(["baseline", "keep"]))
             if len(filtered_df) > 0:
                 highest_bss_historical = filtered_df["bss"].max()

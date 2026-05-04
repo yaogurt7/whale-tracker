@@ -92,15 +92,12 @@ def evaluate(model, X_val, y_val):
 def log_result(commit, bss, bs, status, description):
     """Saves the experiment record to a TSV file."""
     import datetime
-    header = "timestamp\tcommit\tbss\tbs\tstatus\tdescription\n"
-    if not os.path.exists(RESULTS_FILE):
-        with open(RESULTS_FILE, "w") as f:
-            f.write(header)
-            
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"{ts}\t{commit}\t{bss:.6f}\t{bs:.6f}\t{status}\t{description}\n"
     with open(RESULTS_FILE, "a") as f:
         f.write(line)
+    # Force plot generation and saving every time a result is logged
+    generate_plot() 
 
 def generate_plot():
     """Generates a professional, industry-standard BSS tracking chart."""
