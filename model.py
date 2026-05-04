@@ -3,7 +3,7 @@ EDITABLE -- The agent modifies this file.
 Define the model pipeline for Polymarket Whale Flow classification.
 Starting point: Logistic Regression Baseline.
 """
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -11,9 +11,9 @@ from sklearn.preprocessing import StandardScaler
 def build_model():
     """
     Return a scikit-learn Pipeline. 
-    Experiment 1 (Round 2): RandomForestClassifier.
+    Experiment 2: GradientBoostingClassifier.
     """
     return Pipeline([
         ("scaler", StandardScaler()),
-        ("model", RandomForestClassifier(random_state=42)),
+        ("model", GradientBoostingClassifier(random_state=42)),
     ])
