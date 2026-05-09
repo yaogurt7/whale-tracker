@@ -1,11 +1,10 @@
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.preprocessing import RobustScaler
 
 def build_model():
-    """Returns a polynomial interaction Logistic Regression pipeline."""
+    """Returns a robust-scaled Logistic Regression pipeline."""
     return Pipeline([
-        ('poly', PolynomialFeatures(degree=2, include_bias=False)),
-        ('scaler', StandardScaler()),
-        ('model', LogisticRegression(C=0.1, max_iter=1000, random_state=42))
+        ('scaler', RobustScaler()),
+        ('model', LogisticRegression(C=1.0, max_iter=1000, random_state=42))
     ])
