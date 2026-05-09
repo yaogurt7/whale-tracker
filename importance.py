@@ -49,7 +49,7 @@ def check_importance():
     top_feat = feat_df[0, "feature"]
     top_val = feat_df[0, "importance"]
     if top_val > 5.0:
-        print(f"\n⚠️ WARNING: Potential Data Leak detected!")
+        print(f"\nWARNING: Potential Data Leak detected!")
         print(f"The feature '{top_feat}' has a massive importance score ({top_val:.2f}).")
         print("This usually means this column contains information from the future.")
 

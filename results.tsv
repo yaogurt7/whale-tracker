@@ -1,4 +1,13 @@
-# Agent Test Success
 timestamp	commit	bss	bs	status	description
-2026-04-27 13:35:35	5f54dc8	0.838891	0.040277	baseline	Baseline: Logistic Regression
-2026-04-27 13:42:59	5f54dc8	0.838891	0.040277	baseline	Baseline: Logistic Regression
+2026-05-08 23:05:16	75c0a48	0.521131	0.245127	baseline	Baseline: Whale-Base Logistic Regression
+2026-05-08 23:06:18	75c0a48	0.521131	0.245127	baseline	experiment
+2026-05-08 23:28:27	75c0a48	0.522837	0.244254	keep	PolynomialFeatures degree 2 plus LogisticRegression C=0.1
+2026-05-08 23:28:44	8cb8170	0.727548	0.139465	keep	RobustScaler plus LogisticRegression C=1.0
+2026-05-08 23:28:57	9b755d8	0.841753	0.081005	keep	QuantileTransformer normal plus LogisticRegression C=1.0
+2026-05-08 23:29:27	8076449	0.841767	0.080998	keep	HistGradientBoosting max_iter 200 lr 0.03 leaf 31 l2 0.1
+2026-05-08 23:29:45	5e853dd	0.841773	0.080995	keep	RandomForest 200 trees depth 5 min leaf 100 all features
+2026-05-08 23:30:01	0fa7540	0.519326	0.246051	discard	Class-balanced LogisticRegression C=0.3
+2026-05-08 23:30:20	0fa7540	0.841729	0.081017	discard	HistGradientBoosting depth 3 leaf 15 lr 0.04
+2026-05-08 23:30:42	0fa7540	0.841498	0.081135	discard	GradientBoosting 150 estimators depth 2 subsample 0.8
+2026-05-08 23:30:56	0fa7540	0.518605	0.246420	discard	ExtraTrees 250 trees depth 5 min leaf 100 all features
+2026-05-08 23:31:13	0fa7540	0.812537	0.095960	discard	QuantileTransformer normal plus GaussianNB

@@ -1,91 +1,80 @@
-"""
-Run one experiment: build model, train, evaluate, log result.
-Usage:
-    python run.py "description"              # logs as status=keep
-    python run.py "description" --baseline   # logs as status=baseline
-    python run.py "description" --discard    # logs as status=discard
-"""
 import sys
 import time
 import subprocess
-import os # Needed for checking if results.tsv exists
-import polars as pl # Needed for reading results.tsv
+import os
+import polars as pl
 from prepare import load_data, evaluate, log_result
 
-
 def get_git_hash():
-    """Returns the current git hash to link code version to results."""
+    """
+    Retrieves the short version of the current Git commit hash.
+    Explicitly captures stdout while silencing stderr to avoid conflicts.
+    """
     try:
-        return subprocess.check_output(
+        # We replace capture_output=True with explicit stdout/stderr mapping
+        result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
-    except Exception:
+            stdout=subprocess.PIPE,     # This captures the hash string
+            stderr=subprocess.DEVNULL,   # This silences the "not a git repo" errors
+            text=True,                  # Returns a string instead of bytes
+            check=True                  # Raises an error if git command fails
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback for non-git environments or missing git installations
         return "no-git"
 
-
 def main():
+    # --- 1. Argument Parsing (New Structure Style) ---
     args = sys.argv[1:]
     status = "keep"
-    description_parts = []
-    for a in args:
-        if a == "--baseline":
-            status = "baseline"
-        elif a == "--discard":
-            status = "discard"
-        else:
-            description_parts.append(a)
-    description = " ".join(description_parts) if description_parts else "experiment"
+    # Cleaner way to grab description without explicitly naming flags
+    desc = " ".join([a for a in args if not a.startswith("--")]) or "experiment"
+    
+    if "--baseline" in args: status = "baseline"
+    if "--discard" in args: status = "discard"
 
-    # 1. Load data (Uses the chronological 80/20 pool)
-    X_train, y_train, X_val, y_val, feature_names = load_data()
-    print(f"--- Experiment: {description} ---")
-    print(f"Data: {X_train.shape[0]} train, {X_val.shape[0]} val, {len(feature_names)} features")
+    # --- 2. Load Data ---
+    # We use _ for feature_names to match the new structure's style
+    X_train, y_train, X_val, y_val, _ = load_data()
 
-    # 2. Build model (from model.py)
+    # --- 3. Build and Train (New Structure Style with Duration) ---
     from model import build_model
     model = build_model()
-    print(f"Model Architecture: {model}")
-
-    # 3. Train
+    
     t0 = time.time()
     model.fit(X_train, y_train)
-    train_time = time.time() - t0
-    print(f"Training time: {train_time:.2f}s")
+    duration = time.time() - t0
 
-    # 4. Evaluate (Metric: Brier Skill Score vs Market Price)
+    # --- 4. Evaluate ---
     metrics = evaluate(model, X_val, y_val)
-    print(f"Validation BSS: {metrics['bss']:.6f} (Higher is better)")
-    print(f"Validation BS:  {metrics['bs']:.6f}  (Lower is better)")
-
-    # 5. Auto-Discard Logic & Log Result
-    commit = get_git_hash()
+    bss, bs = metrics['bss'], metrics['bs']
     
-    # Read existing results to find the best BSS from 'baseline' or 'keep' entries
-    highest_bss_historical = -float('inf')
-    if os.path.exists("results.tsv"):
-        try:
-            df_results = pl.read_csv("results.tsv", separator="\t")
-            # Clean up column names by stripping whitespace, as results.tsv might have inconsistent spacing
-            df_results.columns = [col.strip() for col in df_results.columns]
-            filtered_df = df_results.filter(pl.col("status").is_in(["baseline", "keep"]))
-            if len(filtered_df) > 0:
-                highest_bss_historical = filtered_df["bss"].max()
-        except pl.NoDataError:
-            print("results.tsv exists but is empty or malformed. Comparison will start fresh.")
-        except Exception as e:
-            print(f"Error reading results.tsv for comparison: {e}")
-            
-    # Apply auto-discard if current BSS is lower than the historical best
-    # This logic does not override explicitly set '--baseline' or '--discard' statuses
-    if status not in ["baseline", "discard"] and metrics['bss'] < highest_bss_historical:
-        print(f"Current BSS ({metrics['bss']:.6f}) is lower than historical best ({highest_bss_historical:.6f}). Setting status to 'discard'.")
-        status = "discard"
-            
-    log_result(commit, metrics['bss'], metrics['bs'], status, description)
-    print(f"Result logged to results.tsv (status={status}, commit={commit})")
-    print("-" * 40)
+    # Adopting the new structure's print style
+    print(f"Result: BSS={bss:.4f}, BS={bs:.4f}, Time={duration:.2f}s")
 
+    # --- 5. Auto-Discard Logic (Preserved and Optimized) ---
+    # We use pandas here for consistency since generate_plot now uses it
+    best_bss = -1.0
+    if os.path.exists("results.tsv") and status == "keep":
+        try:
+            history = pd.read_csv("results.tsv", sep="\t", on_bad_lines='skip')
+            # Only compare against successful previous runs
+            valid_history = history[history["status"].isin(["baseline", "keep"])]
+            if not valid_history.empty:
+                best_bss = valid_history["bss"].max()
+        except Exception as e:
+            print(f"Note: Could not read history for comparison ({e})")
+
+    if status == "keep" and bss < best_bss:
+        print(f"AUTO-DISCARD: Current BSS {bss:.4f} < Best {best_bss:.4f}")
+        status = "discard"
+
+    # --- 6. Log Result ---
+    commit = get_git_hash()
+    # Passing the variables required by your refactored log_result
+    log_result(commit, bss, bs, status, desc)
+    print(f"DONE: Run Complete. Status: {status}")
 
 if __name__ == "__main__":
     main()
