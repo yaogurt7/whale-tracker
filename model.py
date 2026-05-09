@@ -1,11 +1,12 @@
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 def build_model():
-    """Returns a regularized histogram gradient boosting classifier."""
-    return HistGradientBoostingClassifier(
-        max_iter=200,
-        learning_rate=0.03,
-        max_leaf_nodes=31,
-        l2_regularization=0.1,
+    """Returns a shallow RandomForest classifier with smoothed leaves."""
+    return RandomForestClassifier(
+        n_estimators=200,
+        max_depth=5,
+        min_samples_leaf=100,
+        max_features=None,
+        n_jobs=-1,
         random_state=42,
     )
