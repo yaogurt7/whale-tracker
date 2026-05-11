@@ -23,14 +23,15 @@ Maximize BSS on master_trades.parquet.
 5. Check BSS in output
 6. If improved BSS:  git add model.py && git commit -m "feat: <description>"
 7. If worse BSS: git checkout model.py   (revert)
-8. Log results in performance.png and results.tsv through the established channels.
+8. Log results in performance.png, results.tsv, and experiment_log.md in detail through the established channels.
 9. Repeat from step 1
 
 ## Ideas to explore
 
 - Different classifiers: LogisticRegression, RidgeClassifier, SVC with different tuning methods
 - Ensemble methods: RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier with different tuning methods
-- Feature engineering: PolynomialFeatures (for interactions), adding context features (vol_quote, gini, etc.)
+- Feature engineering: PolynomialFeatures (for interactions), adding context features (vol_quote, gini, etc.), weighting, feature creation, PCA, and more.
+- When feature engineering, do not change the data itself, only create variables in the model pipeline.
 - Preprocessing: StandardScaler, RobustScaler, QuantileTransformer
 - Target calibration: CalibratedClassifierCV
 - Hyperparameter tuning within the pipeline (max_depth, n_estimators, learning_rate)
@@ -42,3 +43,4 @@ Maximize BSS on master_trades.parquet.
 - Do not hard-code validation data into the model
 - Do not change the function signature of build_model()
 - Do not touch the test_trades file
+- Do not change the data itself when performing feature engineering
